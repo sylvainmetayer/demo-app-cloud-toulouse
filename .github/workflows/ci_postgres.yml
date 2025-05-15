@@ -16,7 +16,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      - name: Install dependencies 
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install flake8 black
@@ -99,12 +99,12 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ secrets.HARBOR_URL }}/library/standard-app-postgres:latest,${{ secrets.HARBOR_URL }}/library/standard-app-postgres:${{ github.sha }}
+          tags: ${{ secrets.HARBOR_URL }}/library/app-smetayer-postgres:latest,${{ secrets.HARBOR_URL }}/library/app-smetayer-postgres:${{ github.sha }}
           cache-from: type=registry,ref=${{ secrets.HARBOR_URL }}/library/standard-app-postgres:buildcache
           cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
           build-args: |
             PATH_APP=/app_postgres
-  
+
   integration-test:
     needs: build
     if: github.event_name != 'pull_request'
@@ -144,7 +144,7 @@ jobs:
         run: |
           # Création du namespace de test
           kubectl create namespace test --dry-run=client -o yaml | kubectl apply -f -
-          
+
           kubectl create secret docker-registry harbor-creds \
             --namespace test \
             --docker-server=${{ secrets.HARBOR_URL }} \
@@ -158,30 +158,30 @@ jobs:
           cat <<EOF > /tmp/values-override.yaml
           standard-app-postgres:
             image:
-              name: ${{ secrets.HARBOR_URL }}/library/standard-app-postgres:${{ github.sha }}
+              name: ${{ secrets.HARBOR_URL }}/library/app-smetayer-postgres:${{ github.sha }}
           EOF
-          
+
           # Installation/mise à jour du chart Helm avec les valeurs personnalisées
           helm upgrade --install standard-app-postgres . \
             --namespace test \
             -f ./values-dev-postgres.yaml \
             -f /tmp/values-override.yaml \
             --debug
-          
+
           sleep 30
 
           # Check pod status
           echo "Checking pod status..."
           kubectl get pods -n test -l app=standard-app-postgres -o wide
-          
+
           # Check events for troubleshooting
           echo "Checking events..."
           kubectl get events -n test --sort-by='.lastTimestamp'
-          
+
           # Describe deployment for detailed status and potential errors
           echo "Deployment details:"
           kubectl describe deployment/standard-app-postgres-deployment -n test
-          
+
           # Check logs of any pods that exist
           echo "Pod logs (if available):"
           POD_NAME=$(kubectl get pods -n test -l app=standard-app-postgres -o jsonpath="{.items[0].metadata.name}" --ignore-not-found)
@@ -190,7 +190,7 @@ jobs:
           else
             echo "No pods found yet"
           fi
-          
+
           # Wait with timeout for deployment to be ready
           echo "Waiting for deployment to be ready..."
           kubectl -n test rollout status deployment/standard-app-postgres-deployment --timeout=3m
@@ -200,7 +200,7 @@ jobs:
           kubectl -n test port-forward svc/standard-app-postgres-svc 5000:5000 &
           echo "Waiting for port-forward to establish..."
           sleep 5
-          
+
           # Test the endpoint
           echo "Testing endpoint..."
           curl -s http://localhost:5000/health || echo "Health check failed"
@@ -210,10 +210,10 @@ jobs:
           # Run the integration tests against the deployed app
           curl -s http://localhost:5000/health | grep healthy
           curl -s http://localhost:5000/livres | grep "Le DevOps c'est super !"
-  
+
   update-manifests:
     needs: integration-test
-    if: github.event_name != 'pull_request' 
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: write           # 'write' access to repository contents
@@ -222,19 +222,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Wariie/demo-app-python
-      
+
       - name: Update image tag in Helm values
         run: |
           # Installation de yq pour la manipulation YAML
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod a+x /usr/local/bin/yq
-          
+
           # Mise à jour du tag d'image dans le fichier values.yaml
-          yq eval '.image.name = "${{ secrets.HARBOR_URL }}/library/standard-app-postgres:${{ github.sha }}"' -i charts/standard-app-postgres/values.yaml
-          
+          yq eval '.image.name = "${{ secrets.HARBOR_URL }}/library/app-smetayer-postgres:${{ github.sha }}"' -i charts/standard-app-postgres/values.yaml
+
           # Vérification de la mise à jour
           cat charts/standard-app-postgres/values.yaml
-      
+
       - name: Commit and push changes
         run: |
           git add charts/standard-app-postgres/values.yaml
