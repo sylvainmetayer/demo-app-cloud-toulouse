@@ -1,6 +1,7 @@
 
 ## Guide d'Atelier
 
+
 ### Table des Matières
 1. [Introduction](#introduction)
 2. [Prérequis de l'Atelier](#prerequis)
@@ -10,7 +11,7 @@
 6. [Crossplane pour gérer son infra applicative](#crossplane)
 7. [Conclusion](#conclusion)
 
-Annexes : 
+Annexes :
  - Utilisation Avancée d'ArgoCD
  - Troubleshooting
  - Ressources
@@ -186,7 +187,7 @@ on:présentés précédemment
 
 jobs:
   ...
-  
+
   integration-test:
     needs: build
     if: github.event_name != 'pull_request'
@@ -224,7 +225,7 @@ jobs:
         run: |
           # Création du namespace de test
           kubectl create namespace test --dry-run=client -o yaml | kubectl apply -f -
-          
+
           kubectl create secret docker-registry harbor-creds \
             --namespace test \
             --docker-server=${{ secrets.HARBOR_URL }} \
@@ -238,28 +239,28 @@ jobs:
           image:
             name: ${{ secrets.HARBOR_URL }}/library/standard-app:${{ github.sha }}
           EOF
-          
+
           # Installation/mise à jour du chart Helm avec les valeurs personnalisées
           helm upgrade --install standard-app ./charts/standard-app \
             --namespace test \
             -f ./charts/standard-app/values-dev.yaml \
             -f /tmp/values-override.yaml \
             --debug
-          
+
           sleep 30
 
           # Check pod status
           echo "Checking pod status..."
           kubectl get pods -n test -l app=standard-app -o wide
-          
+
           # Check events for troubleshooting
           echo "Checking events..."
           kubectl get events -n test --sort-by='.lastTimestamp'
-          
+
           # Describe deployment for detailed status and potential errors
           echo "Deployment details:"
           kubectl describe deployment/standard-app-deployment -n test
-          
+
           # Check logs of any pods that exist
           echo "Pod logs (if available):"
           POD_NAME=$(kubectl get pods -n test -l app=standard-app -o jsonpath="{.items[0].metadata.name}" --ignore-not-found)
@@ -268,17 +269,17 @@ jobs:
           else
             echo "No pods found yet"
           fi
-          
+
           # Wait with timeout for deployment to be ready
           echo "Waiting for deployment to be ready..."
           kubectl -n test rollout status deployment/standard-app-deployment --timeout=3m
-          
+
           # Expose service for tests
           echo "Exposing service for tests..."
           kubectl -n test port-forward svc/standard-app-svc 5000:5000 &
           echo "Waiting for port-forward to establish..."
           sleep 5
-          
+
           # Test the endpoint
           echo "Testing endpoint..."
           curl -s http://localhost:5000/health || echo "Health check failed"
@@ -287,7 +288,7 @@ jobs:
           # Run the integration tests against the deployed app
           curl -s http://localhost:5000/health | grep healthy
           curl -s http://localhost:5000/livres | grep "Le DevOps c'est super !"
-  
+
  ...
 ```
 
@@ -335,11 +336,11 @@ Pour un déploiement blue/green, vous pouvez créer deux environnements identiqu
 <a name="argocd"></a>
 ## 4. ArgoCD - GitOps pour Kubernetes
 
-### 4.0 Prérequis pour réaliser cette section 
+### 4.0 Prérequis pour réaliser cette section
 
-Pour de réaliser cette partie, vous aurez besoin d'une adresse mail associée à un compte Google. 
+Pour de réaliser cette partie, vous aurez besoin d'une adresse mail associée à un compte Google.
 
-En effet sur l'url https://argocd.cgicloudtoulouse.fr, vous aurez la possibilité de pouvoir vous connecter à l'application ArgoCD. Cependant, vous devez en amont positionner des droits. 
+En effet sur l'url https://argocd.cgicloudtoulouse.fr, vous aurez la possibilité de pouvoir vous connecter à l'application ArgoCD. Cependant, vous devez en amont positionner des droits.
 
 Cela se fait via un projet ArgoCD, qui est une entité permettant de gérer un ensemble d'applications. Il offre également la possibilité de définir divers droits et restrictions pour un meilleur contrôle des déploiements.
 
@@ -375,7 +376,7 @@ spec:
   roles:
   # mise en place des droits à partir des utilisateur ou de leurs groupes (cf: https://argo-cd.readthedocs.io/en/stable/operator-manual/rbac/#rbac-model-structure)
     - name: edit-demo
-      description: Read Only privileges to simple user 
+      description: Read Only privileges to simple user
       policies:
         - p, proj:standard-app:edit-dev, applications, *, standard-app/*, allow
         - p, proj:standard-app:edit-dev, logs, *, standard-app/*, allow
@@ -409,12 +410,12 @@ Pour créer une application dans ArgoCD qui utilise des images de votre registre
 - Un deployment
 - Un ingress GCP
 - Un HPA
-- Un service 
+- Un service
 - Un ensemble de différents objets Crossplane (qui par défaut ne sont pas créés cf: Partie 5)
 
 3. Créez une application ArgoCD via l'interface :
 
-Faute d'accès au cluster Kubernetes, il est tout à fait possible de créer l'application ArgoCD depuis l'interface. 
+Faute d'accès au cluster Kubernetes, il est tout à fait possible de créer l'application ArgoCD depuis l'interface.
 
 Une application ArgoCD est défini par ArgoCD comme une Custom Resource (CR) :
 
@@ -443,7 +444,7 @@ spec:
     syncOptions:
       - CreateNamespace=true
 ```
-Il est aisé de retrouver ces différentes options pour ajouter une nouvelle application. 
+Il est aisé de retrouver ces différentes options pour ajouter une nouvelle application.
 
 Il est également possible d'utiliser les lignes de commande argocd pour arriver au même résultat :
 
@@ -459,7 +460,7 @@ argocd app create standard-app \
   --values ./values.yaml
 ```
 
-### 4.3 Stratégies de Synchronisation ArgoCD 
+### 4.3 Stratégies de Synchronisation ArgoCD
 
 ArgoCD offre plusieurs stratégies de synchronisation :
 - **Manuelle** : Les changements doivent être explicitement approuvés et déclenchés
@@ -490,7 +491,7 @@ Ce guide propose quatre scénarios pratiques qui vous permettront de mettre en a
   ```bash
   git checkout -b scenario-5.1  # Pour le premier scénario
   git checkout -b scenario-5.2  # Pour le deuxième scénario
-  
+
   # Puis spécifiez la branche dans ArgoCD avec --revision
   ```
 
@@ -520,7 +521,7 @@ argocd app create standard-app \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace microservices \
   --sync-policy automated \
-  --self-heal \ 
+  --self-heal \
   --values ./values.yaml
 ```
 
@@ -556,7 +557,7 @@ argocd app create standard-app-postgres \
 
 5. Explorez comment la gestion des secrets est réalisée dans un environnement GitOps sécurisé
 
-### 5.3 Scénario 3 : Déploiement de Bookstack avec ArgoCD 
+### 5.3 Scénario 3 : Déploiement de Bookstack avec ArgoCD
 
 #TODO CHECK BOOKSTACK
 
@@ -626,36 +627,36 @@ Ce scénario illustre l'intégration complète entre les phases CI (Intégration
 <a name="crossplane"></a>
 ## 6. Crossplane pour gérer son infra applicative
 
-### 6.1 Principes de Crossplane 
+### 6.1 Principes de Crossplane
 
 Crossplane est une solution permettant de déployer une infrastructure Cloud à travers Kubernetes. https://www.crossplane.io/
 
-Pour fonctionner, Crossplane utilise les providers de Terraform et génère un exemple de CRD permettant de créer les ressources correspondant aux objets Cloud demandés. 
+Pour fonctionner, Crossplane utilise les providers de Terraform et génère un exemple de CRD permettant de créer les ressources correspondant aux objets Cloud demandés.
 
 La mise en place de crossplane pour ce Workshop est effectué grâce aux fichiers suivant:
-- **argocd-ref/templates/crossplane.yaml** qui permet de déployer la solution Crossplane en elle même 
+- **argocd-ref/templates/crossplane.yaml** qui permet de déployer la solution Crossplane en elle même
 - **argocd-ref/templates/crossplane-provider.yaml** qui permet de déployer les providers et prérequis pour créer des ressources Cloud avec Crossplane via le répertoire **crossplane-provider**
 
 Le répertoire **crossplane-provider** contient les composants suivants :
 
 - Les deux providers pour GCP et OVH. Ces derniers permettent de générer les CRD qui permettront de créer les ressources qui nous intéresserons plus tard. Ces providers sont trouvables sur le site upbound.com (par exemple pour gcp https://marketplace.upbound.io/providers/upbound/provider-gcp-compute/v1.8.3)
-- Les provider config. Ces deux éléments permettent d'authentifier le cluster auprès des provider cloud. Les identifiants sont données en amont de ce workshop via la commande ```kubectl create secret generic ovh-secret-demo -n crossplane-system --from-file=creds=ovh.json``` à partir d'un fichier d'identifiant d'ovh par exemple. 
+- Les provider config. Ces deux éléments permettent d'authentifier le cluster auprès des provider cloud. Les identifiants sont données en amont de ce workshop via la commande ```kubectl create secret generic ovh-secret-demo -n crossplane-system --from-file=creds=ovh.json``` à partir d'un fichier d'identifiant d'ovh par exemple.
 - Une function qui est un élément qui sert à la construction de Composition
 - Une composition et sa définition d'un point de vue API. Ces éléments permettent de créer nos propres custom ressource sur Kubernetes un peu sur le même modèle que les modules terraform. C'est très pratique par exemple dans le cadre ou des ressources ont des dépendances (ex: une adresse ip et son entrée DNS)
 
-### 6.2 Utilisation de Crossplane. 
+### 6.2 Utilisation de Crossplane.
 
-Afin d'utiliser Crossplane, il va falloir modifier le projet ArgoCD créé en amont. Supprimez la ressource Ingress avant toute chose pour éviter les problèmes de déploiement avec Crossplane. 
+Afin d'utiliser Crossplane, il va falloir modifier le projet ArgoCD créé en amont. Supprimez la ressource Ingress avant toute chose pour éviter les problèmes de déploiement avec Crossplane.
 
-En effet, il va falloir modifier la variable helm crossplane.enabled pour la passer a true. 
+En effet, il va falloir modifier la variable helm crossplane.enabled pour la passer a true.
 
-Cette modification va avoir pour effet de déployer une composition Crossplane. 
+Cette modification va avoir pour effet de déployer une composition Crossplane.
 
-Cette composition Crossplane, déploie une adresse ip pour l'ingress gcp et fait un enregistrement DNS sur OVH. 
+Cette composition Crossplane, déploie une adresse ip pour l'ingress gcp et fait un enregistrement DNS sur OVH.
 
 La base ayant permis la création de ces deux composant est présente dans le dossier **charts/standard-app**
 
-Par exemple le fichier charts/standard-app/templates/ipanddns.yaml va contenir plusieurs ressources. 
+Par exemple le fichier charts/standard-app/templates/ipanddns.yaml va contenir plusieurs ressources.
 
 Voici la ressource permettant de créer une adresse ip sur GCP :
 ```yaml
@@ -672,16 +673,16 @@ spec:
 
 Afin de comprendre comment définir une ressource crossplane, une description api et potentiellement des exemples sont donnés pour chaque ressource dans la documentation associée sur Upbound. Par exemple pour cette ressource voici ce que nous avons : https://marketplace.upbound.io/providers/upbound/provider-gcp-compute/v1.8.3/resources/compute.gcp.upbound.io/GlobalAddress/v1beta1
 
-Sinon, par défault, nous passons par une composition (cf: https://docs.crossplane.io/v2.0-preview/composition/composite-resource-definitions/). 
+Sinon, par défault, nous passons par une composition (cf: https://docs.crossplane.io/v2.0-preview/composition/composite-resource-definitions/).
 Celle-ci est définie par le fichier crossplane-provider/compositionipdns.yaml
 
 La Custom Ressource est déployé via le fichier charts/standard-app/templates/ipanddns.yaml.
 
 Ainsi via la composition une adresse ip est remontée, une fois créée cette dernière va être remontée à la CR qui va donner cette information à la ressource ZoneRecord (décrite par https://marketplace.upbound.io/providers/edixos/provider-ovh/v1.1.0/resources/dns.ovh.edixos.io/ZoneRecord/v1alpha1 )
 
-Ainsi normalement il ne reste plus qu'à déployer et tester. 
+Ainsi normalement il ne reste plus qu'à déployer et tester.
 
-ArgoCD, une fois configuré pour Crossplane, permet un suivi en temps réel du status des ressources. 
+ArgoCD, une fois configuré pour Crossplane, permet un suivi en temps réel du status des ressources.
 
 Cela est avantageux vis-à-vis d'un terraform car les ressources sont synchronisée en temps réel ce qu'il fait que la démarche GitOps est assurée en passant par cette méthode.
 
